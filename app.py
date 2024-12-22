@@ -15,7 +15,9 @@ import requests
 import yaml
 from dotenv import load_dotenv
 
-# [Previous NiftyOptionsAnalyzer class code remains exactly the same, no changes needed]
+# Load environment variables
+load_dotenv()
+
 class NiftyOptionsAnalyzer:
     def __init__(self):
         """
@@ -24,10 +26,10 @@ class NiftyOptionsAnalyzer:
         # Load API keys from environment variables
         self.news_api_key = os.getenv('NEWS_API_KEY')
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
-
+        
         if not self.news_api_key or not self.openai_api_key:
             raise ValueError("Required API keys not found in environment variables")
-
+            
         self.fib_ratios = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1]
         self.historical_data = None
 
@@ -531,29 +533,17 @@ def analyze():
     try:
         data = request.get_json()
 
-        # Validate input data including API keys
-        required_fields = ['stock_name', 'data_string', 'news_api_key', 'openai_api_key']
-        missing_fields = [field for field in required_fields if field not in data]
-
-        if missing_fields:
+        # Validate input data
+        if not data or 'stock_name' not in data or 'data_string' not in data:
             return jsonify({
                 "status": "error",
-                "message": f"Missing required fields: {', '.join(missing_fields)}"
+                "message": "Missing required fields: stock_name and data_string"
             }), 400
 
-        # Extract data from request
         stock_name = data['stock_name']
         data_string = data['data_string']
-        news_api_key = data['news_api_key']
-        openai_api_key = data['openai_api_key']
 
-        # Initialize analyzer with provided API keys
-        analyzer = NiftyOptionsAnalyzer(
-            news_api_key=news_api_key,
-            openai_api_key=openai_api_key
-        )
-
-        # Run analysis
+        analyzer = NiftyOptionsAnalyzer()
         result = analyzer.comprehensive_trading_analysis(stock_name, data_string)
 
         # Flatten and simplify the response with explicit type conversions
@@ -590,6 +580,7 @@ def analyze():
             "status": "error",
             "message": str(e)
         }), 500
+
 @app.route("/")
 def home():
     """
