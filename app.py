@@ -1,5 +1,3 @@
-
-# First part of the enhanced code
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -19,6 +17,12 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from statsmodels.tsa.stattools import adfuller
 from scipy import stats
+
+# Initialize Flask application
+app = Flask(__name__)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Load environment variables
 load_dotenv()
@@ -41,6 +45,7 @@ class NiftyOptionsAnalyzer:
         self.min_profit_target = 50  # Minimum profit target in points
         self.max_loss_target = 30    # Maximum loss target in points
         self.trend_threshold = 0.6   # Threshold for trend strength
+        pass
 
     def parse_custom_data(self, stock_name, data_string, days_to_expiry=None):
         """
@@ -609,8 +614,15 @@ class NiftyOptionsAnalyzer:
         except Exception as e:
             logging.error(f"Error in comprehensive analysis: {str(e)}")
             raise
-
 # Enhanced Flask routes
+@app.route('/')
+def home():
+    """Root endpoint to verify the application is running"""
+    return jsonify({
+        "status": "success",
+        "message": "Nifty Options Analyzer API is running"
+    })
+
 @app.route('/analyze', methods=['POST'])
 def analyze():
     try:
@@ -651,6 +663,22 @@ def analyze():
             "status": "error",
             "message": "Internal server error"
         }), 500
+
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 errors"""
+    return jsonify({
+        "status": "error",
+        "message": "Resource not found"
+    }), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 errors"""
+    return jsonify({
+        "status": "error",
+        "message": "Internal server error"
+    }), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
