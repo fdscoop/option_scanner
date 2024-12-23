@@ -45,6 +45,7 @@ class NiftyOptionsAnalyzer:
             
         self.fib_ratios = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1]
         self.historical_data = None
+        self.analyzer = SentimentIntensityAnalyzer()
         
         # New configuration parameters
         self.min_profit_target = 50  # Minimum profit target in points
@@ -52,6 +53,79 @@ class NiftyOptionsAnalyzer:
         self.trend_threshold = 0.6    # Threshold for trend strength
         
         logger.info("NiftyOptionsAnalyzer initialized successfully")
+
+    def fetch_financial_news(self, stock_name, days=7):
+        """
+        Fetch and analyze financial news for the given stock
+        
+        Args:
+            stock_name (str): Name of the stock to fetch news for
+            days (int): Number of days of news to fetch (default: 7)
+            
+        Returns:
+            pandas.DataFrame: DataFrame containing news data with sentiment scores
+        """
+        try:
+            logger.info(f"Fetching news for {stock_name}")
+            
+            # Calculate date range
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+            
+            # Format dates for API
+            from_date = start_date.strftime('%Y-%m-%d')
+            to_date = end_date.strftime('%Y-%m-%d')
+            
+            # NewsAPI endpoint
+            url = f"https://newsapi.org/v2/everything"
+            
+            # Parameters for the API request
+            params = {
+                'q': stock_name,
+                'from': from_date,
+                'to': to_date,
+                'language': 'en',
+                'sortBy': 'publishedAt',
+                'apiKey': self.news_api_key
+            }
+            
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            
+            news_data = response.json()
+            
+            if not news_data.get('articles'):
+                logger.warning(f"No news articles found for {stock_name}")
+                return pd.DataFrame(columns=['date', 'title', 'sentiment_score'])
+            
+            # Process articles
+            processed_news = []
+            for article in news_data['articles']:
+                # Combine title and description for sentiment analysis
+                text = f"{article['title']} {article.get('description', '')}"
+                sentiment_scores = self.analyzer.polarity_scores(text)
+                
+                processed_news.append({
+                    'date': article['publishedAt'],
+                    'title': article['title'],
+                    'sentiment_score': sentiment_scores['compound']
+                })
+            
+            # Create DataFrame and sort by date
+            news_df = pd.DataFrame(processed_news)
+            news_df['date'] = pd.to_datetime(news_df['date'])
+            news_df = news_df.sort_values('date', ascending=False)
+            
+            logger.info(f"Successfully fetched and analyzed {len(news_df)} news articles")
+            return news_df
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error fetching news data: {str(e)}")
+            return pd.DataFrame(columns=['date', 'title', 'sentiment_score'])
+        except Exception as e:
+            logger.error(f"Error processing news data: {str(e)}")
+            return pd.DataFrame(columns=['date', 'title', 'sentiment_score'])
+
 
     def parse_custom_data(self, stock_name, data_string, days_to_expiry=None):
         """
