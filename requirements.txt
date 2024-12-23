@@ -6,10 +6,9 @@ ta
 vaderSentiment
 openai
 scipy
-flask
+Flask
 python-dotenv
-statsmodels
-pyyaml
+PyYAML
 requests
 gunicorn
 
