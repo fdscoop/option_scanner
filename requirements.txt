@@ -11,4 +11,5 @@ python-dotenv
 PyYAML
 requests
 gunicorn
+statsmodels
 
