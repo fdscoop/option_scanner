@@ -493,6 +493,7 @@ class NiftyOptionsAnalyzer:
             swot_analysis
         )
 
+<<<<<<< HEAD
         # Generate plots and convert to base64
         plot_buffer = self.generate_analysis_plots(technical_data, breakeven_analysis, fib_levels)
 
@@ -527,6 +528,19 @@ logger = logging.getLogger(__name__)
 # Flask App Initialization
 app = Flask(__name__)
 analyzer = NiftyOptionsAnalyzer()
+=======
+        except Exception as e:
+            logging.error(f"Error in comprehensive analysis: {str(e)}")
+            raise
+# Enhanced Flask routes
+@app.route('/')
+def home():
+    """Root endpoint to verify the application is running"""
+    return jsonify({
+        "status": "success",
+        "message": " Options Scanner AI is running"
+    })
+>>>>>>> c0e928b (Your commit message)
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
