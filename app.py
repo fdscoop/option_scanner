@@ -21,8 +21,12 @@ from scipy import stats
 # Initialize Flask application
 app = Flask(__name__)
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure enhanced logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -34,88 +38,130 @@ class NiftyOptionsAnalyzer:
         """
         self.news_api_key = os.getenv('NEWS_API_KEY')
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
-
+        
         if not self.news_api_key or not self.openai_api_key:
+            logger.error("Missing required API keys")
             raise ValueError("Required API keys not found in environment variables")
-
+            
         self.fib_ratios = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1]
         self.historical_data = None
-
+        
         # New configuration parameters
         self.min_profit_target = 50  # Minimum profit target in points
         self.max_loss_target = 30    # Maximum loss target in points
-        self.trend_threshold = 0.6   # Threshold for trend strength
-        pass
+        self.trend_threshold = 0.6    # Threshold for trend strength
+        
+        logger.info("NiftyOptionsAnalyzer initialized successfully")
 
     def parse_custom_data(self, stock_name, data_string, days_to_expiry=None):
         """
-        Enhanced data parser with days to expiry
+        Enhanced data parser with days to expiry and validation
         """
         try:
+            logger.info(f"Parsing data for {stock_name}")
+            logger.debug(f"Data string sample: {data_string[:100]}...")
+            
             data_points = data_string.split(', ')
+            if len(data_points) < 6 or len(data_points) % 6 != 0:
+                raise ValueError(f"Invalid data format: Expected multiple of 6 data points, got {len(data_points)}")
+                
             rows = [data_points[i:i+6] for i in range(0, len(data_points), 6)]
-
             columns = ['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
+            
             df = pd.DataFrame(rows, columns=columns)
-
+            
             # Data type conversion with error handling
             df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
             for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-
+            
+            # Validation checks
+            if df.isnull().any().any():
+                null_counts = df.isnull().sum()
+                logger.error(f"Missing values detected: {null_counts}")
+                raise ValueError(f"Dataset contains missing values: {null_counts}")
+                
             df.dropna(inplace=True)
+            
+            if len(df) < 200:
+                raise ValueError(f"Insufficient data points for analysis. Required: 200, Got: {len(df)}")
+                
             df.set_index('Datetime', inplace=True)
-
+            
+            # Validate price data
+            if not (df['High'] >= df['Low']).all():
+                logger.error("Invalid price data: High prices lower than Low prices detected")
+                raise ValueError("Invalid price data detected")
+                
             # Store days to expiry
             self.days_to_expiry = days_to_expiry if days_to_expiry is not None else 1
             self.historical_data = df
-
+            
+            logger.info(f"Successfully parsed {len(df)} data points")
             return df
+            
         except Exception as e:
-            logging.error(f"Error parsing data: {str(e)}")
-            raise ValueError("Invalid data format")
+            logger.error(f"Error parsing data: {str(e)}")
+            raise ValueError(f"Invalid data format: {str(e)}")
 
     def calculate_comprehensive_technical_indicators(self):
         """
-        Enhanced technical indicators calculation
+        Enhanced technical indicators calculation with validation
         """
         try:
+            if self.historical_data is None:
+                raise ValueError("No historical data available")
+                
+            logger.info("Calculating technical indicators")
             df = self.historical_data.copy()
-
+            
+            # Validate data requirements
+            required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+            if not all(col in df.columns for col in required_columns):
+                missing_cols = [col for col in required_columns if col not in df.columns]
+                raise ValueError(f"Missing required columns: {missing_cols}")
+                
             # Additional trend indicators
             df['EMA_200'] = ta.trend.EMAIndicator(df['Close'], window=200).ema_indicator()
             df['SMA_20'] = ta.trend.SMAIndicator(df['Close'], window=20).sma_indicator()
             df['SMA_50'] = ta.trend.SMAIndicator(df['Close'], window=50).sma_indicator()
             df['EMA_20'] = ta.trend.EMAIndicator(df['Close'], window=20).ema_indicator()
             df['EMA_50'] = ta.trend.EMAIndicator(df['Close'], window=50).ema_indicator()
-
+            
             # Enhanced momentum indicators
             df['RSI'] = ta.momentum.RSIIndicator(df['Close']).rsi()
             df['MACD'] = ta.trend.MACD(df['Close']).macd()
             df['MACD_Signal'] = ta.trend.MACD(df['Close']).macd_signal()
             df['Stochastic_K'] = ta.momentum.StochasticOscillator(df['High'], df['Low'], df['Close']).stoch()
             df['Stochastic_D'] = ta.momentum.StochasticOscillator(df['High'], df['Low'], df['Close']).stoch_signal()
-
+            
             # Volatility indicators
             df['Bollinger_High'] = ta.volatility.BollingerBands(df['Close']).bollinger_hband()
             df['Bollinger_Low'] = ta.volatility.BollingerBands(df['Close']).bollinger_lband()
             df['ATR'] = ta.volatility.AverageTrueRange(df['High'], df['Low'], df['Close']).average_true_range()
-
+            
             # New trend strength indicators
             df['ADX'] = ta.trend.ADXIndicator(df['High'], df['Low'], df['Close']).adx()
             df['DI_Positive'] = ta.trend.ADXIndicator(df['High'], df['Low'], df['Close']).adx_pos()
             df['DI_Negative'] = ta.trend.ADXIndicator(df['High'], df['Low'], df['Close']).adx_neg()
-
+            
             # Calculate daily, weekly, and monthly trends
             df['Daily_Return'] = df['Close'].pct_change()
             df['Weekly_Return'] = df['Close'].pct_change(periods=5)
             df['Monthly_Return'] = df['Close'].pct_change(periods=20)
-
+            
+            # Validate calculated indicators
+            if df.isnull().any().any():
+                null_counts = df.isnull().sum()
+                logger.warning(f"Missing values in indicators: {null_counts}")
+                df.fillna(method='ffill', inplace=True)
+                
+            logger.info("Successfully calculated technical indicators")
             return df
-
+            
         except Exception as e:
-            logging.error(f"Error calculating technical indicators: {str(e)}")
-            raise ValueError("Error in technical analysis calculations")
+            logger.error(f"Error calculating technical indicators: {str(e)}")
+            raise ValueError(f"Error in technical analysis calculations: {str(e)}")
 
     def calculate_option_greeks(self, spot_price, strike_price, risk_free_rate=0.07, volatility=0.2):
         """
@@ -415,17 +461,21 @@ class NiftyOptionsAnalyzer:
             return "Error generating market report"
     def perform_enhanced_swot_analysis(self, technical_data, sentiment_impact, trend_analysis):
         """
-        Enhanced SWOT analysis integrating multiple data points
+        Enhanced SWOT analysis with error handling
         """
         try:
+            if technical_data is None or technical_data.empty:
+                raise ValueError("Invalid technical data")
+                
             latest_data = technical_data.iloc[-1]
-
+            
             swot = {
                 'Strengths': [],
                 'Weaknesses': [],
                 'Opportunities': [],
                 'Threats': []
             }
+            
 
             # Trend-based analysis
             if latest_data['Close'] > latest_data['EMA_200']:
@@ -460,9 +510,9 @@ class NiftyOptionsAnalyzer:
                     swot['Threats'].append("TH:STRONG_DOWNTREND")
 
             return swot
-
+            
         except Exception as e:
-            logging.error(f"Error in SWOT analysis: {str(e)}")
+            logger.error(f"Error in SWOT analysis: {str(e)}")
             return {'Strengths': [], 'Weaknesses': [], 'Opportunities': [], 'Threats': []}
 
     def enhance_game_theory_analysis(self, technical_data, sentiment_score, trend_analysis):
@@ -627,46 +677,54 @@ def home():
 def analyze():
     try:
         data = request.get_json()
-
+        logger.info("Received analysis request")
+        
         # Validate input
         required_fields = ['stock_name', 'data_string']
         if not all(field in data for field in required_fields):
+            missing_fields = [field for field in required_fields if field not in data]
+            logger.error(f"Missing required fields: {missing_fields}")
             return jsonify({
                 "status": "error",
-                "message": "Missing required fields"
+                "message": f"Missing required fields: {missing_fields}"
             }), 400
-
+            
         # Extract optional parameters
         days_to_expiry = data.get('days_to_expiry', None)
-
+        
         # Initialize analyzer and perform analysis
         analyzer = NiftyOptionsAnalyzer()
+        
         result = analyzer.comprehensive_trading_analysis(
             data['stock_name'],
             data['data_string'],
             days_to_expiry
         )
-
+        
+        logger.info("Analysis completed successfully")
         return jsonify({
             "status": "success",
             "data": result
         })
-
+        
     except ValueError as ve:
+        logger.error(f"Validation error: {str(ve)}")
         return jsonify({
             "status": "error",
             "message": str(ve)
         }), 400
+        
     except Exception as e:
-        logging.error(f"Analysis error: {str(e)}")
+        logger.error(f"Analysis error: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": "Internal server error"
+            "message": f"Internal server error: {str(e)}"
         }), 500
 
 @app.errorhandler(404)
 def not_found(error):
     """Handle 404 errors"""
+    logger.warning(f"404 error: {request.url}")
     return jsonify({
         "status": "error",
         "message": "Resource not found"
@@ -675,6 +733,7 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     """Handle 500 errors"""
+    logger.error(f"500 error: {str(error)}")
     return jsonify({
         "status": "error",
         "message": "Internal server error"
