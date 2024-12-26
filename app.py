@@ -755,6 +755,7 @@ def analyze():
         analyzer = NiftyOptionsAnalyzer()
         
         def modified_analysis(self, stock_name, data_array, days_to_expiry=None):
+            # Initialize all analyses
             self.parse_array_data(stock_name, data_array, days_to_expiry)
             technical_data = self.calculate_comprehensive_technical_indicators()
             trend_analysis = self.analyze_market_trends()
@@ -764,25 +765,69 @@ def analyze():
             strike_price = latest_price * (1.05 if trend_analysis['daily']['trend'] == 'Bullish' else 0.95)
             option_greeks = self.calculate_option_greeks(latest_price, strike_price)
             zones = self.identify_entry_exit_zones(technical_data, option_greeks)
-            
-            return [{
-                'timestamp': technical_data.index[-1].strftime('%Y-%m-%d %H:%M:%S'),
-                'price': float(latest_price),
-                'trend': trend_analysis['daily']['trend'],
-                'strength': trend_analysis['daily']['strength'],
-                'rsi': float(technical_data['RSI'].iloc[-1]),
-                'macd': float(technical_data['MACD'].iloc[-1]),
-                'support': float(technical_data['Bollinger_Low'].iloc[-1]),
-                'resistance': float(technical_data['Bollinger_High'].iloc[-1]),
-                'sentiment_score': sentiment_impact['score'],
-                'call_delta': option_greeks['call']['delta'],
-                'put_delta': option_greeks['put']['delta'],
-                'recommended_entry': zones['current_price'],
-                'stop_loss': zones['targets']['call']['stop_loss'],
-                'target1': zones['targets']['call']['target1'],
-                'target2': zones['targets']['call']['target2']
-            }]
-        
+            game_theory = self.enhance_game_theory_analysis(technical_data, sentiment_impact['score'], trend_analysis)
+            swot = self.perform_enhanced_swot_analysis(technical_data, sentiment_impact, trend_analysis)
+            market_report = self.generate_ai_market_report(technical_data, sentiment_data, trend_analysis, zones)
+
+            return {
+                'technical_analysis': {
+                    'current_indicators': {
+                        'timestamp': technical_data.index[-1].strftime('%Y-%m-%d %H:%M:%S'),
+                        'price': float(latest_price),
+                        'ema_200': float(technical_data['EMA_200'].iloc[-1]),
+                        'sma_20': float(technical_data['SMA_20'].iloc[-1]),
+                        'sma_50': float(technical_data['SMA_50'].iloc[-1]),
+                        'ema_20': float(technical_data['EMA_20'].iloc[-1]),
+                        'ema_50': float(technical_data['EMA_50'].iloc[-1]),
+                        'rsi': float(technical_data['RSI'].iloc[-1]),
+                        'macd': float(technical_data['MACD'].iloc[-1]),
+                        'macd_signal': float(technical_data['MACD_Signal'].iloc[-1]),
+                        'stochastic_k': float(technical_data['Stochastic_K'].iloc[-1]),
+                        'stochastic_d': float(technical_data['Stochastic_D'].iloc[-1]),
+                        'bollinger_high': float(technical_data['Bollinger_High'].iloc[-1]),
+                        'bollinger_low': float(technical_data['Bollinger_Low'].iloc[-1]),
+                        'atr': float(technical_data['ATR'].iloc[-1]),
+                        'adx': float(technical_data['ADX'].iloc[-1]),
+                        'di_positive': float(technical_data['DI_Positive'].iloc[-1]),
+                        'di_negative': float(technical_data['DI_Negative'].iloc[-1]),
+                        'daily_return': float(technical_data['Daily_Return'].iloc[-1]),
+                        'weekly_return': float(technical_data['Weekly_Return'].iloc[-1]),
+                        'monthly_return': float(technical_data['Monthly_Return'].iloc[-1])
+                    },
+                    'trend_analysis': trend_analysis,
+                    'support_resistance': {
+                        'support': float(technical_data['Bollinger_Low'].iloc[-1]),
+                        'resistance': float(technical_data['Bollinger_High'].iloc[-1])
+                    }
+                },
+                'options_analysis': {
+                    'greeks': option_greeks,
+                    'trading_zones': zones,
+                    'strike_price': float(strike_price)
+                },
+                'sentiment_analysis': {
+                    'impact': sentiment_impact['impact'],
+                    'score': sentiment_impact['score'],
+                    'confidence': sentiment_impact['confidence'],
+                    'recent_change': sentiment_impact['recent_change']
+                },
+                'game_theory_analysis': {
+                    'market_probability': game_theory['market_probability'],
+                    'strategy_expected_values': game_theory['strategy_expected_values'],
+                    'risk_adjusted_ev': game_theory['risk_adjusted_ev'],
+                    'recommended_strategy': game_theory['recommended_strategy'],
+                    'confidence_score': game_theory['confidence_score']
+                },
+                'swot_analysis': swot,
+                'market_report': market_report,
+                'entry_exit_points': {
+                    'recommended_entry': zones['current_price'],
+                    'stop_loss': zones['targets']['call']['stop_loss'],
+                    'target1': zones['targets']['call']['target1'],
+                    'target2': zones['targets']['call']['target2']
+                }
+            }
+
         NiftyOptionsAnalyzer.modified_analysis = modified_analysis
         
         result = analyzer.modified_analysis(
