@@ -173,11 +173,6 @@ class NiftyOptionsAnalyzer:
         logger.error(f"Error parsing data: {str(e)}")
         raise ValueError(f"Invalid data format: {str(e)}")
 
-        
-    except Exception as e:
-        logger.error(f"Error parsing data: {str(e)}")
-        raise ValueError(f"Invalid data format: {str(e)}")
-
     def calculate_comprehensive_technical_indicators(self):
         """
         Enhanced technical indicators calculation with validation
