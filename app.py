@@ -127,9 +127,9 @@ class NiftyOptionsAnalyzer:
             return pd.DataFrame(columns=['date', 'title', 'sentiment_score'])
 
     def parse_array_data(self, stock_name, data_array, days_to_expiry=None):
-    """
-    Parse array data instead of string data
-    """
+        """
+        Parse array data instead of string data
+        """
     try:
         logger.info(f"Parsing array data for {stock_name}")
         
