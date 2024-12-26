@@ -168,6 +168,11 @@ class NiftyOptionsAnalyzer:
         
         logger.info(f"Successfully parsed {len(df)} data points")
         return df
+    
+    except Exception as e:
+        logger.error(f"Error parsing data: {str(e)}")
+        raise ValueError(f"Invalid data format: {str(e)}")
+
         
     except Exception as e:
         logger.error(f"Error parsing data: {str(e)}")
