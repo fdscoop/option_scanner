@@ -149,26 +149,26 @@ class NiftyOptionsAnalyzer:
             null_counts = df.isnull().sum()
             logger.error(f"Missing values detected: {null_counts}")
             raise ValueError(f"Dataset contains missing values: {null_counts}")
-            
+        
         df.dropna(inplace=True)
         
         if len(df) < 5:  # Reduced minimum requirement for testing
             raise ValueError(f"Insufficient data points for analysis. Required: 5, Got: {len(df)}")
-            
+        
         df.set_index('Datetime', inplace=True)
         
         # Validate price data
         if not (df['High'] >= df['Low']).all():
             logger.error("Invalid price data: High prices lower than Low prices detected")
             raise ValueError("Invalid price data detected")
-            
+        
         # Store days to expiry
         self.days_to_expiry = days_to_expiry if days_to_expiry is not None else 1
         self.historical_data = df
         
         logger.info(f"Successfully parsed {len(df)} data points")
         return df
-    
+
     except Exception as e:
         logger.error(f"Error parsing data: {str(e)}")
         raise ValueError(f"Invalid data format: {str(e)}")
