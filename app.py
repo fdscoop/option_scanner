@@ -125,58 +125,48 @@ class NiftyOptionsAnalyzer:
         except Exception as e:
             logger.error(f"Error processing news data: {str(e)}")
             return pd.DataFrame(columns=['date', 'title', 'sentiment_score'])
+    pass
 
-def parse_array_data(self, stock_name, data_array, days_to_expiry=None):
-    """
-    Parse array data instead of string data
-    """
-    try:
-        logger.info(f"Parsing array data for {stock_name}")
-        
-        # Convert array data to DataFrame
-        df = pd.DataFrame(
-            data_array,
-            columns=['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
-        )
-        
-        # Data type conversion with error handling
-        df['Datetime'] = pd.to_datetime(df['Datetime'])
-        for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-        
-        # Validation checks
-        if df.isnull().any().any():
-            null_counts = df.isnull().sum()
-            logger.error(f"Missing values detected: {null_counts}")
-            raise ValueError(f"Dataset contains missing values: {null_counts}")
-        
-        df.dropna(inplace=True)
-        
-        if len(df) < 5:  # Reduced minimum requirement for testing
-            raise ValueError(f"Insufficient data points for analysis. Required: 5, Got: {len(df)}")
-        
-        df.set_index('Datetime', inplace=True)
-        
-        # Validate price data
-        if not (df['High'] >= df['Low']).all():
-            logger.error("Invalid price data: High prices lower than Low prices detected")
-            raise ValueError("Invalid price data detected")
-        
-        # Store days to expiry
-        self.days_to_expiry = days_to_expiry if days_to_expiry is not None else 1
-        self.historical_data = df
-        
-        logger.info(f"Successfully parsed {len(df)} data points")
-        return df
+    def parse_array_data(self, stock_name, data_array, days_to_expiry=None):
+        try:
+            logger.info(f"Parsing array data for {stock_name}")
+            
+            df = pd.DataFrame(
+                data_array,
+                columns=['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
+            )
+            
+            df['Datetime'] = pd.to_datetime(df['Datetime'])
+            for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            if df.isnull().any().any():
+                null_counts = df.isnull().sum()
+                logger.error(f"Missing values detected: {null_counts}")
+                raise ValueError(f"Dataset contains missing values: {null_counts}")
+            
+            df.dropna(inplace=True)
+            
+            if len(df) < 5:
+                raise ValueError(f"Insufficient data points for analysis. Required: 5, Got: {len(df)}")
+            
+            df.set_index('Datetime', inplace=True)
+            
+            if not (df['High'] >= df['Low']).all():
+                logger.error("Invalid price data: High prices lower than Low prices detected")
+                raise ValueError("Invalid price data detected")
+            
+            self.days_to_expiry = days_to_expiry if days_to_expiry is not None else 1
+            self.historical_data = df
+            
+            logger.info(f"Successfully parsed {len(df)} data points")
+            return df
 
-    except Exception as e:
-        logger.error(f"Error parsing data: {str(e)}")
-        raise ValueError(f"Invalid data format: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error parsing data: {str(e)}")
+            raise ValueError(f"Invalid data format: {str(e)}")
 
     def calculate_comprehensive_technical_indicators(self):
-        """
-        Enhanced technical indicators calculation with validation
-        """
         try:
             if self.historical_data is None:
                 raise ValueError("No historical data available")
@@ -184,42 +174,36 @@ def parse_array_data(self, stock_name, data_array, days_to_expiry=None):
             logger.info("Calculating technical indicators")
             df = self.historical_data.copy()
             
-            # Validate data requirements
             required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
             if not all(col in df.columns for col in required_columns):
                 missing_cols = [col for col in required_columns if col not in df.columns]
                 raise ValueError(f"Missing required columns: {missing_cols}")
                 
-            # Additional trend indicators
+            # Add technical indicators
             df['EMA_200'] = ta.trend.EMAIndicator(df['Close'], window=200).ema_indicator()
             df['SMA_20'] = ta.trend.SMAIndicator(df['Close'], window=20).sma_indicator()
             df['SMA_50'] = ta.trend.SMAIndicator(df['Close'], window=50).sma_indicator()
             df['EMA_20'] = ta.trend.EMAIndicator(df['Close'], window=20).ema_indicator()
             df['EMA_50'] = ta.trend.EMAIndicator(df['Close'], window=50).ema_indicator()
             
-            # Enhanced momentum indicators
             df['RSI'] = ta.momentum.RSIIndicator(df['Close']).rsi()
             df['MACD'] = ta.trend.MACD(df['Close']).macd()
             df['MACD_Signal'] = ta.trend.MACD(df['Close']).macd_signal()
             df['Stochastic_K'] = ta.momentum.StochasticOscillator(df['High'], df['Low'], df['Close']).stoch()
             df['Stochastic_D'] = ta.momentum.StochasticOscillator(df['High'], df['Low'], df['Close']).stoch_signal()
             
-            # Volatility indicators
             df['Bollinger_High'] = ta.volatility.BollingerBands(df['Close']).bollinger_hband()
             df['Bollinger_Low'] = ta.volatility.BollingerBands(df['Close']).bollinger_lband()
             df['ATR'] = ta.volatility.AverageTrueRange(df['High'], df['Low'], df['Close']).average_true_range()
             
-            # New trend strength indicators
             df['ADX'] = ta.trend.ADXIndicator(df['High'], df['Low'], df['Close']).adx()
             df['DI_Positive'] = ta.trend.ADXIndicator(df['High'], df['Low'], df['Close']).adx_pos()
             df['DI_Negative'] = ta.trend.ADXIndicator(df['High'], df['Low'], df['Close']).adx_neg()
             
-            # Calculate daily, weekly, and monthly trends
             df['Daily_Return'] = df['Close'].pct_change()
             df['Weekly_Return'] = df['Close'].pct_change(periods=5)
             df['Monthly_Return'] = df['Close'].pct_change(periods=20)
             
-            # Validate calculated indicators
             if df.isnull().any().any():
                 null_counts = df.isnull().sum()
                 logger.warning(f"Missing values in indicators: {null_counts}")
@@ -231,6 +215,7 @@ def parse_array_data(self, stock_name, data_array, days_to_expiry=None):
         except Exception as e:
             logger.error(f"Error calculating technical indicators: {str(e)}")
             raise ValueError(f"Error in technical analysis calculations: {str(e)}")
+
 
 
     def calculate_option_greeks(self, spot_price, strike_price, risk_free_rate=0.07, volatility=0.2):
@@ -748,7 +733,6 @@ def analyze():
         data = request.get_json()
         logger.info("Received analysis request")
         
-        # Validate input
         if not isinstance(data, dict):
             return jsonify({
                 "status": "error",
@@ -767,13 +751,9 @@ def analyze():
                 "message": "data_array must be a list of lists"
             }), 400
             
-        # Extract optional parameters
         days_to_expiry = data.get('days_to_expiry', None)
-        
-        # Initialize analyzer
         analyzer = NiftyOptionsAnalyzer()
         
-        # Replace parse_custom_data with parse_array_data in comprehensive_trading_analysis
         def modified_analysis(self, stock_name, data_array, days_to_expiry=None):
             self.parse_array_data(stock_name, data_array, days_to_expiry)
             technical_data = self.calculate_comprehensive_technical_indicators()
@@ -785,32 +765,26 @@ def analyze():
             option_greeks = self.calculate_option_greeks(latest_price, strike_price)
             zones = self.identify_entry_exit_zones(technical_data, option_greeks)
             
-            # Return simplified array format
-            return [
-                {
-                    'timestamp': technical_data.index[-1].strftime('%Y-%m-%d %H:%M:%S'),
-                    'price': float(latest_price),
-                    'trend': trend_analysis['daily']['trend'],
-                    'strength': trend_analysis['daily']['strength'],
-                    'rsi': float(technical_data['RSI'].iloc[-1]),
-                    'macd': float(technical_data['MACD'].iloc[-1]),
-                    'support': float(technical_data['Bollinger_Low'].iloc[-1]),
-                    'resistance': float(technical_data['Bollinger_High'].iloc[-1]),
-                    'sentiment_score': sentiment_impact['score'],
-                    'call_delta': option_greeks['call']['delta'],
-                    'put_delta': option_greeks['put']['delta'],
-                    'recommended_entry': zones['current_price'],
-                    'stop_loss': zones['targets']['call']['stop_loss'],
-                    'target1': zones['targets']['call']['target1'],
-                    'target2': zones['targets']['call']['target2']
-                }
-            ]
+            return [{
+                'timestamp': technical_data.index[-1].strftime('%Y-%m-%d %H:%M:%S'),
+                'price': float(latest_price),
+                'trend': trend_analysis['daily']['trend'],
+                'strength': trend_analysis['daily']['strength'],
+                'rsi': float(technical_data['RSI'].iloc[-1]),
+                'macd': float(technical_data['MACD'].iloc[-1]),
+                'support': float(technical_data['Bollinger_Low'].iloc[-1]),
+                'resistance': float(technical_data['Bollinger_High'].iloc[-1]),
+                'sentiment_score': sentiment_impact['score'],
+                'call_delta': option_greeks['call']['delta'],
+                'put_delta': option_greeks['put']['delta'],
+                'recommended_entry': zones['current_price'],
+                'stop_loss': zones['targets']['call']['stop_loss'],
+                'target1': zones['targets']['call']['target1'],
+                'target2': zones['targets']['call']['target2']
+            }]
         
-        # Add the new method to the analyzer
-        NiftyOptionsAnalyzer.parse_array_data = parse_array_data
         NiftyOptionsAnalyzer.modified_analysis = modified_analysis
         
-        # Perform analysis
         result = analyzer.modified_analysis(
             data['stock_name'],
             data['data_array'],
@@ -838,5 +812,5 @@ def analyze():
         }), 500
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
